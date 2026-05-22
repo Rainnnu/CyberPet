@@ -1,0 +1,15 @@
+node_modules/
+dist/
+out/
+*.log
+.env
+.env.local
+.DS_Store
+Thumbs.db
+openspec/changes/archive/
+
+# Large model files (use Git LFS or download separately)
+*.glb
+*.fbx
+*.hdr
+Ch46_nonPBR.glb
