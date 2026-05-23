@@ -67,7 +67,11 @@
       "Bash(npx --yes @gltf-transform/cli inspect public/models/role/human/Amy/Ch46_nonPBR.glb)",
       "Bash(npx --yes @gltf-transform/cli inspect public/models/role/human/AccuRig/thirtySeven.glb)",
       "Bash(python *)",
-      "Bash(node *)"
+      "Bash(node *)",
+      "Bash(git stash *)",
+      "Bash(git commit *)",
+      "Bash(git pull *)",
+      "Bash(git push *)"
     ]
   }
 }
