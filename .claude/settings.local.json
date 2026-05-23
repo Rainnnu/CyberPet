@@ -52,7 +52,15 @@
       "PowerShell(Get-ChildItem -Path \"E:\\\\CyberPet\\\\public\\\\models\" -Recurse -Directory | ForEach-Object { $_.FullName })",
       "PowerShell(Move-Item *)",
       "Bash(git init *)",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Bash(powershell.exe *)",
+      "Bash(command -v pwsh)",
+      "Bash(command -v powershell)",
+      "Bash(command -v cmd.exe)",
+      "Bash(command -v python)",
+      "Bash(command -v node)",
+      "Bash(cmd.exe *)",
+      "Bash(python *)"
     ]
   }
 }
