@@ -111,13 +111,15 @@ export default function PetScene({
 }: PetSceneProps) {
   return (
     <Canvas
-      camera={{ position: [0, -0.2, 3], fov: 50 }}
-      style={{ background: "transparent" }}
-      gl={{ alpha: true, antialias: true, premultipliedAlpha: false }}
+      dpr={1}
+      camera={{ position: [0, 0, 4], fov: 50, near: 0.1, far: 100 }}
+      style={{ background: "transparent", width: "100%", height: "100%" }}
+      gl={{ alpha: true, antialias: true, premultipliedAlpha: false, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.0 }}
     >
-      <ambientLight intensity={1.5} />
-      <directionalLight position={[5, 5, 5]} intensity={1.5} />
-      <directionalLight position={[-3, 3, 2]} intensity={0.8} />
+      <ambientLight intensity={1.0} />
+      <hemisphereLight args={["#b1e1ff", "#b97a20", 0.8]} />
+      <directionalLight position={[5, 8, 5]} intensity={1.5} />
+      <directionalLight position={[-3, 2, 4]} intensity={0.6} />
       <PetModel emotion={emotion} selectedCharacter={selectedCharacter} />
       <HitDetector
         onClick={onClick}

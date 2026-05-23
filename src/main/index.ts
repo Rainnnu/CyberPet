@@ -3,7 +3,7 @@ import { join } from 'path'
 
 const isDev = !app.isPackaged
 
-import { readFileSync, writeFileSync, existsSync } from 'fs'
+import { readFileSync, existsSync, writeFile } from 'fs'
 const configPath = join(app.getPath('userData'), 'window-config.json')
 
 interface WindowConfig {
@@ -21,11 +21,19 @@ function loadConfig(): WindowConfig {
   return {}
 }
 
+// Debounced async save — avoids sync file I/O on every IPC call
+let saveTimer: ReturnType<typeof setTimeout> | null = null
+let pendingConfig: Partial<WindowConfig> = {}
+
 function saveConfig(data: Partial<WindowConfig>) {
-  try {
-    const existing = loadConfig()
-    writeFileSync(configPath, JSON.stringify({ ...existing, ...data }))
-  } catch {}
+  pendingConfig = { ...pendingConfig, ...data }
+  if (saveTimer) return
+  saveTimer = setTimeout(() => {
+    saveTimer = null
+    const merged = { ...loadConfig(), ...pendingConfig }
+    pendingConfig = {}
+    writeFile(configPath, JSON.stringify(merged), () => {})
+  }, 500)
 }
 
 let mainWindow: BrowserWindow | null = null
@@ -81,6 +89,9 @@ function createWindow(): void {
 
   // Ensure window receives mouse events (not click-through)
   mainWindow.setIgnoreMouseEvents(false)
+
+  // Suppress native context menu
+  mainWindow.webContents.on('context-menu', (e) => e.preventDefault())
 
   // IPC: resize window
   ipcMain.handle('resize-window', (_event, size: number) => {

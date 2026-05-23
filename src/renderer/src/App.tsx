@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, useRef } from "react";
+import { useCallback, useEffect, useState, useRef, startTransition } from "react";
 import PetScene from "./components/PetScene";
 import ChatDialog from "./components/ChatDialog";
 import Settings from "./components/Settings";
@@ -10,6 +10,8 @@ import { loadSelectedCharacter, saveSelectedCharacter } from "./configs/characte
 function App() {
   const [showChat, setShowChat] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const showChatRef = useRef(false);
+  const showSettingsRef = useRef(false);
   const [reminder, setReminder] = useState<string | null>(null);
   const isDragging = useRef(false);
   const dragStartPos = useRef({ x: 0, y: 0 });
@@ -89,28 +91,44 @@ function App() {
   }, []);
 
   const handlePetClick = useCallback(() => {
-    if (showChat || showSettings) {
+    if (showChatRef.current || showSettingsRef.current) {
       setShowChat(false);
       setShowSettings(false);
+      showChatRef.current = false;
+      showSettingsRef.current = false;
     } else {
       setShowChat(true);
+      showChatRef.current = true;
     }
-  }, [showChat, showSettings]);
+  }, []);
 
   const handleCloseChat = useCallback(() => {
     setShowChat(false);
+    showChatRef.current = false;
   }, []);
 
   const handleSendMessage = useCallback(
     async (text: string) => {
       if (!isConfigured) {
         setShowSettings(true);
+        showSettingsRef.current = true;
         return "Please configure your API key first.";
       }
       return sendMessage(text);
     },
     [isConfigured, sendMessage],
   );
+
+  const handleCloseSettings = useCallback(() => {
+    setShowSettings(false);
+    showSettingsRef.current = false;
+  }, []);
+
+  const handleCharacterChange = useCallback((name: string) => {
+    saveSelectedCharacter(name);
+    // Defer character switch to next tick so Settings closes first
+    setTimeout(() => setSelectedCharacter(name), 0);
+  }, []);
 
   // Click-through: transparent areas pass through to desktop
   useEffect(() => {
@@ -122,7 +140,9 @@ function App() {
   }, []);
 
   const handlePointerOut = useCallback(() => {
-    window.electronAPI?.setIgnoreMouseEvents(true, { forward: true });
+    if (!isDragging.current && !showChatRef.current && !showSettingsRef.current) {
+      window.electronAPI?.setIgnoreMouseEvents(true, { forward: true });
+    }
   }, []);
 
   // Sticky position: element follows window, but clamps to screen edges
@@ -144,27 +164,40 @@ function App() {
     [screenBounds],
   );
 
-  // Drag: mousemove and mouseup on window
+  // Drag: mousemove and mouseup on window — registered once, uses refs for state
   useEffect(() => {
+    let rafId = 0;
+    let pendingPos: { x: number; y: number } | null = null;
+
     const handleMouseMove = (e: MouseEvent) => {
-      if (isDragging.current) {
-        const dx = e.screenX - dragStartPos.current.x;
-        const dy = e.screenY - dragStartPos.current.y;
+      if (!isDragging.current) return;
 
-        if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
-          hasMoved.current = true;
-        }
+      const dx = e.screenX - dragStartPos.current.x;
+      const dy = e.screenY - dragStartPos.current.y;
 
-        if (hasMoved.current) {
-          const newX = windowStartPos.current.x + dx;
-          const newY = windowStartPos.current.y + dy;
-          window.electronAPI
-            .setWindowPosition(newX, newY)
-            .then((actual: { x: number; y: number; w: number; h: number }) => {
-              currentWindowPos.current = { x: actual.x, y: actual.y };
-              currentContentSize.current = { w: actual.w, h: actual.h };
-              forceRender((n) => n + 1);
-            });
+      if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
+        hasMoved.current = true;
+      }
+
+      if (hasMoved.current) {
+        pendingPos = {
+          x: windowStartPos.current.x + dx,
+          y: windowStartPos.current.y + dy,
+        };
+        if (!rafId) {
+          rafId = requestAnimationFrame(() => {
+            rafId = 0;
+            if (!pendingPos || !isDragging.current) return;
+            const pos = pendingPos;
+            pendingPos = null;
+            window.electronAPI
+              .setWindowPosition(pos.x, pos.y)
+              .then((actual: { x: number; y: number; w: number; h: number }) => {
+                currentWindowPos.current = { x: actual.x, y: actual.y };
+                currentContentSize.current = { w: actual.w, h: actual.h };
+                forceRender((n) => n + 1);
+              });
+          });
         }
       }
     };
@@ -172,7 +205,11 @@ function App() {
     const handleMouseUp = () => {
       if (isDragging.current) {
         isDragging.current = false;
-        // If didn't drag, treat as click
+        cancelAnimationFrame(rafId);
+        rafId = 0;
+        pendingPos = null;
+        // Ensure window receives events after drag ends
+        window.electronAPI?.setIgnoreMouseEvents(false);
         if (!hasMoved.current) {
           handlePetClick();
         }
@@ -185,25 +222,30 @@ function App() {
     return () => {
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseup", handleMouseUp);
+      cancelAnimationFrame(rafId);
     };
-  }, [handlePetClick]);
+  }, []); // No deps — uses refs and stable callbacks
 
-  // R3F pointer down on mesh — start drag
+  // R3F pointer down on mesh — start drag or disable click-through for right-click
   const handlePointerDown = useCallback((e: any) => {
+    const nativeEvent = e.event || e;
     if (e.button === 0) {
-      const nativeEvent = e.event || e;
       isDragging.current = true;
       hasMoved.current = false;
       dragStartPos.current = { x: nativeEvent.screenX, y: nativeEvent.screenY };
       windowStartPos.current = { ...currentWindowPos.current };
+    } else if (e.button === 2) {
+      // Ensure click-through is disabled so contextmenu event reaches the renderer
+      window.electronAPI?.setIgnoreMouseEvents(false);
     }
   }, []);
 
-  // Right-click on mesh — open settings
-  const handleContextMenu = useCallback((e: any) => {
-    e.event?.preventDefault?.();
+  // Right-click — open settings
+  const handleContextMenu = useCallback(() => {
     setShowSettings(true);
+    showSettingsRef.current = true;
     setShowChat(false);
+    showChatRef.current = false;
   }, []);
 
   const winX = currentWindowPos.current.x;
@@ -228,7 +270,10 @@ function App() {
           position: "absolute",
           inset: 0,
         }}
-        onClick={() => console.log("[App] canvas div clicked")}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          handleContextMenu();
+        }}
       >
         <PetScene
           emotion={emotion}
@@ -300,12 +345,9 @@ function App() {
           <Settings
             config={settings}
             onSave={setSettings}
-            onClose={() => setShowSettings(false)}
+            onClose={handleCloseSettings}
             selectedCharacter={selectedCharacter}
-            onCharacterChange={(name) => {
-              setSelectedCharacter(name);
-              saveSelectedCharacter(name);
-            }}
+            onCharacterChange={handleCharacterChange}
           />
         </div>
       )}

@@ -17,10 +17,11 @@ function useEyeTracking(
   groupRef: React.RefObject<THREE.Group>,
   scene: THREE.Object3D,
   mixer: THREE.AnimationMixer | null,
-  enabled: boolean
+  enabled: boolean,
+  headBoneNames?: string[]
 ) {
   const { camera } = useThree();
-  const headBoneRef = useRef<THREE.Bone | null>(null);
+  const headBoneRef = useRef<THREE.Object3D | null>(null);
   const neutralQuatRef = useRef<THREE.Quaternion | null>(null);
   const headQuatRef = useRef(new THREE.Quaternion());
   const mouseRef = useRef({ x: 0, y: 0, near: false });
@@ -30,13 +31,17 @@ function useEyeTracking(
   // Find head bone
   useEffect(() => {
     if (!enabled) return;
-    const allBones: THREE.Bone[] = [];
-    let knownMatch: THREE.Bone | null = null;
+    const boneNames = headBoneNames && headBoneNames.length > 0
+      ? headBoneNames
+      : DEFAULT_HEAD_BONES;
+    const allBones: THREE.Object3D[] = [];
+    let knownMatch: THREE.Object3D | null = null;
     scene.traverse((obj) => {
-      if (obj.type === "Bone") {
-        allBones.push(obj as THREE.Bone);
-        if (!knownMatch && DEFAULT_HEAD_BONES.includes(obj.name)) {
-          knownMatch = obj as THREE.Bone;
+      // AccuRig models export bones as Object3D, Mixamo as Bone
+      if (obj.type === "Bone" || obj.type === "Object3D") {
+        allBones.push(obj);
+        if (!knownMatch && boneNames.includes(obj.name)) {
+          knownMatch = obj;
         }
       }
     });
@@ -47,7 +52,7 @@ function useEyeTracking(
       neutralQuatRef.current = found.quaternion.clone();
       headQuatRef.current.copy(found.quaternion);
     }
-  }, [scene, enabled]);
+  }, [scene, enabled, headBoneNames]);
 
   // Mouse listener — uses window dimensions (works in Electron transparent windows)
   useEffect(() => {
@@ -163,14 +168,10 @@ function useEyeTracking(
 function EmbeddedCharacter({
   config,
   emotion,
-  onClick,
-  onPointerDown,
-  onPointerOver,
-  onPointerOut,
 }: {
   config: CharacterConfig;
   emotion: Emotion;
-} & CharacterModelCallbacks) {
+}) {
   const group = useRef<THREE.Group>(null!);
   const { scene, animations } = useGLTF(config.model);
   const { actions, names, mixer } = useAnimations(animations, group);
@@ -178,7 +179,7 @@ function EmbeddedCharacter({
 
   const clonedScene = useMemo(() => SkeletonUtils.clone(scene), [scene]);
 
-  useEyeTracking(group, clonedScene, mixer, !!config.eyeTracking);
+  useEyeTracking(group, clonedScene, mixer, !!config.eyeTracking, config.headBoneNames);
 
   // Animation transition
   useEffect(() => {
@@ -212,10 +213,6 @@ function EmbeddedCharacter({
       object={clonedScene}
       scale={config.scale}
       position={config.position}
-      onClick={onClick}
-      onPointerDown={onPointerDown}
-      onPointerOver={onPointerOver}
-      onPointerOut={onPointerOut}
     />
   );
 }
@@ -224,14 +221,10 @@ function EmbeddedCharacter({
 function ExternalCharacter({
   config,
   emotion,
-  onClick,
-  onPointerDown,
-  onPointerOver,
-  onPointerOut,
 }: {
   config: CharacterConfig;
   emotion: Emotion;
-} & CharacterModelCallbacks) {
+}) {
   const group = useRef<THREE.Group>(null!);
   const { scene } = useGLTF(config.model);
   const currentActionRef = useRef<THREE.AnimationAction | null>(null);
@@ -239,6 +232,19 @@ function ExternalCharacter({
   const loaderRef = useRef(new GLTFLoader());
 
   const clonedScene = useMemo(() => SkeletonUtils.clone(scene), [scene]);
+
+  // Dispose old cloned scene when config changes
+  useEffect(() => {
+    return () => {
+      clonedScene.traverse((obj: any) => {
+        if (obj.geometry) obj.geometry.dispose();
+        if (obj.material) {
+          if (Array.isArray(obj.material)) obj.material.forEach((m: any) => m.dispose());
+          else obj.material.dispose();
+        }
+      });
+    };
+  }, [clonedScene]);
 
   // Load animation manually — no Suspense, old animation keeps playing
   useEffect(() => {
@@ -255,7 +261,7 @@ function ExternalCharacter({
   const { actions, names, mixer } = useAnimations(animClips, group);
   const prevActionRef = useRef<THREE.AnimationAction | null>(null);
 
-  useEyeTracking(group, clonedScene, mixer, !!config.eyeTracking);
+  useEyeTracking(group, clonedScene, mixer, !!config.eyeTracking, config.headBoneNames);
 
   // Animation transition — crossfade from old action to new
   useEffect(() => {
@@ -300,35 +306,20 @@ function ExternalCharacter({
       object={clonedScene}
       scale={config.scale}
       position={config.position}
-      onClick={onClick}
-      onPointerDown={onPointerDown}
-      onPointerOver={onPointerOver}
-      onPointerOut={onPointerOut}
     />
   );
 }
 
 // --- Main Component ---
-export interface CharacterModelCallbacks {
-  onClick?: () => void;
-  onPointerDown?: (e: any) => void;
-  onPointerOver?: () => void;
-  onPointerOut?: () => void;
-}
-
 export default function CharacterModel({
   config,
   emotion,
-  onClick,
-  onPointerDown,
-  onPointerOver,
-  onPointerOut,
 }: {
   config: CharacterConfig;
   emotion: Emotion;
-} & CharacterModelCallbacks) {
+}) {
   if (config.animationSource === "external") {
-    return <ExternalCharacter config={config} emotion={emotion} onClick={onClick} onPointerDown={onPointerDown} onPointerOver={onPointerOver} onPointerOut={onPointerOut} />;
+    return <ExternalCharacter config={config} emotion={emotion} />;
   }
-  return <EmbeddedCharacter config={config} emotion={emotion} onClick={onClick} onPointerDown={onPointerDown} onPointerOver={onPointerOver} onPointerOut={onPointerOut} />;
+  return <EmbeddedCharacter config={config} emotion={emotion} />;
 }

@@ -35,21 +35,22 @@ export const CAT_CONFIG: CharacterConfig = {
   breathing: true,
 };
 
-// --- ThirtySeven (human, external animations from Cat's action folder) ---
+// --- ThirtySeven (AccuRig model, external animations) ---
 export const THIRTY_SEVEN_CONFIG: CharacterConfig = {
   name: "ThirtySeven",
-  model: "/models/role/human/thirtySeven.glb",
+  model: "/models/role/human/AccuRig/thirtySeven.glb",
   animations: {
-    idle: "/models/role/animal/Cat/action/standing idle.glb",
-    happy: "/models/role/animal/Cat/action/standing jump.glb",
-    thinking: "/models/role/animal/Cat/action/standing idle looking ver. 1.glb",
-    sad: "/models/role/animal/Cat/action/crouch idle.glb",
+    idle: "/models/role/human/AccuRig/anim_idle.glb",
+    happy: "/models/role/human/AccuRig/anim_happy.glb",
+    thinking: "/models/role/human/AccuRig/anim_thinking.glb",
+    sad: "/models/role/human/AccuRig/anim_sad.glb",
   },
   animationSource: "external",
   scale: 0.8,
   position: [0, -0.1, 0],
   eyeTracking: true,
   breathing: true,
+  headBoneNames: ["CC_Base_Head", "CC_Base_Neck"],
 };
 
 // --- pet.glb (embedded animations) ---

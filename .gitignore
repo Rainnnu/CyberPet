@@ -8,8 +8,7 @@ out/
 Thumbs.db
 openspec/changes/archive/
 
-# Large model files (use Git LFS or download separately)
-*.glb
-*.fbx
+# Large binary assets (kept in repo)
+# *.glb
+# *.fbx
 *.hdr
-Ch46_nonPBR.glb

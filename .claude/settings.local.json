@@ -52,7 +52,22 @@
       "PowerShell(Get-ChildItem -Path \"E:\\\\CyberPet\\\\public\\\\models\" -Recurse -Directory | ForEach-Object { $_.FullName })",
       "PowerShell(Move-Item *)",
       "Bash(git init *)",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "PowerShell(openspec new *)",
+      "PowerShell(openspec status *)",
+      "PowerShell(openspec instructions *)",
+      "PowerShell(openspec list *)",
+      "mcp__streamable-mcp-server__get_windows_and_tabs",
+      "mcp__streamable-mcp-server__chrome_navigate",
+      "mcp__streamable-mcp-server__chrome_console",
+      "mcp__streamable-mcp-server__chrome_computer",
+      "mcp__streamable-mcp-server__chrome_click_element",
+      "PowerShell(Rename-Item *)",
+      "Bash(node -e ' *)",
+      "Bash(npx --yes @gltf-transform/cli inspect public/models/role/human/Amy/Ch46_nonPBR.glb)",
+      "Bash(npx --yes @gltf-transform/cli inspect public/models/role/human/AccuRig/thirtySeven.glb)",
+      "Bash(python *)",
+      "Bash(node *)"
     ]
   }
 }

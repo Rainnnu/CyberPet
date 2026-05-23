@@ -1,9 +1,8 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect, Component, type ReactNode } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import type { Emotion } from "../hooks/useEmotion";
 import CharacterModel from "./CharacterModel";
-import type { CharacterModelCallbacks } from "./CharacterModel";
 import { CHARACTER_CHAIN } from "../configs/characters";
 
 const EMOTION_COLORS: Record<Emotion, string> = {
@@ -56,23 +55,42 @@ function FallbackPet({ emotion }: { emotion: Emotion }) {
 }
 
 function LoadingIndicator() {
+  const meshRef = useRef<THREE.Mesh>(null!);
+
+  useFrame((state) => {
+    if (meshRef.current) {
+      const t = state.clock.elapsedTime;
+      meshRef.current.rotation.y = t * 2;
+      meshRef.current.rotation.x = t * 0.5;
+      const scale = 1 + Math.sin(t * 3) * 0.2;
+      meshRef.current.scale.set(scale, scale, scale);
+    }
+  });
+
   return (
-    <mesh>
+    <mesh ref={meshRef}>
       <sphereGeometry args={[0.3, 16, 16]} />
-      <meshStandardMaterial color="#64c8ff" transparent opacity={0.4} />
+      <meshStandardMaterial color="#64c8ff" transparent opacity={0.6} />
     </mesh>
   );
 }
 
-import { Component, type ReactNode } from "react";
-
 class ErrorBoundary extends Component<
-  { children: ReactNode; onError: () => void },
-  { hasError: boolean }
+  { children: ReactNode; onError: () => void; resetKey?: string },
+  { hasError: boolean; lastResetKey?: string }
 > {
-  state = { hasError: false };
+  state = { hasError: false, lastResetKey: undefined as string | undefined };
   static getDerivedStateFromError() {
     return { hasError: true };
+  }
+  static getDerivedStateFromProps(props: { resetKey?: string }, state: { hasError: boolean; lastResetKey?: string }) {
+    if (state.hasError && props.resetKey !== state.lastResetKey) {
+      return { hasError: false, lastResetKey: props.resetKey };
+    }
+    if (props.resetKey !== state.lastResetKey) {
+      return { lastResetKey: props.resetKey };
+    }
+    return null;
   }
   componentDidCatch() {
     this.props.onError();
@@ -83,8 +101,20 @@ class ErrorBoundary extends Component<
   }
 }
 
-export default function PetModel({ emotion, selectedCharacter, onClick, onPointerDown, onPointerOver, onPointerOut }: { emotion: Emotion; selectedCharacter?: string } & CharacterModelCallbacks) {
+export default function PetModel({ emotion, selectedCharacter }: { emotion: Emotion; selectedCharacter?: string }) {
   const [failedNames, setFailedNames] = useState<Set<string>>(new Set());
+
+  // Reset failed names when user explicitly selects a character
+  useEffect(() => {
+    if (selectedCharacter) {
+      setFailedNames((prev) => {
+        if (!prev.has(selectedCharacter)) return prev;
+        const next = new Set(prev);
+        next.delete(selectedCharacter);
+        return next;
+      });
+    }
+  }, [selectedCharacter]);
 
   const handleFail = (name: string) => {
     setFailedNames((prev) => new Set(prev).add(name));
@@ -108,9 +138,9 @@ export default function PetModel({ emotion, selectedCharacter, onClick, onPointe
   }
 
   return (
-    <ErrorBoundary onError={() => handleFail(active.name)}>
+    <ErrorBoundary resetKey={active.name} onError={() => handleFail(active.name)}>
       <React.Suspense fallback={<LoadingIndicator />}>
-        <CharacterModel config={active} emotion={emotion} onClick={onClick} onPointerDown={onPointerDown} onPointerOver={onPointerOver} onPointerOut={onPointerOut} />
+        <CharacterModel key={active.model} config={active} emotion={emotion} />
       </React.Suspense>
     </ErrorBoundary>
   );
