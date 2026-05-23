@@ -114,16 +114,22 @@ function App() {
 
   // Click-through: transparent areas pass through to desktop
   useEffect(() => {
-    window.electronAPI?.setIgnoreMouseEvents(true, { forward: true });
-  }, []);
+    if (showChat || showSettings) {
+      window.electronAPI?.setIgnoreMouseEvents(false);
+    } else {
+      window.electronAPI?.setIgnoreMouseEvents(true, { forward: true });
+    }
+  }, [showChat, showSettings]);
 
   const handlePointerOver = useCallback(() => {
     window.electronAPI?.setIgnoreMouseEvents(false);
   }, []);
 
   const handlePointerOut = useCallback(() => {
-    window.electronAPI?.setIgnoreMouseEvents(true, { forward: true });
-  }, []);
+    if (!showChat && !showSettings) {
+      window.electronAPI?.setIgnoreMouseEvents(true, { forward: true });
+    }
+  }, [showChat, showSettings]);
 
   // Sticky position: element follows window, but clamps to screen edges
   const getStickyLeft = useCallback(

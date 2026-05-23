@@ -108,7 +108,7 @@ export default function PetModel({ emotion, selectedCharacter, onClick, onPointe
   }
 
   return (
-    <ErrorBoundary onError={() => handleFail(active.name)}>
+    <ErrorBoundary key={active.name} onError={() => handleFail(active.name)}>
       <React.Suspense fallback={<LoadingIndicator />}>
         <CharacterModel config={active} emotion={emotion} onClick={onClick} onPointerDown={onPointerDown} onPointerOver={onPointerOver} onPointerOut={onPointerOut} />
       </React.Suspense>
